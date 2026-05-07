@@ -1,0 +1,15 @@
+# Dataset files (images + annotations) — keep out of git; use HF / release for data
+data/
+
+# Local / run outputs (not part of reproducible scripts)
+results/
+final_result/
+convert_result/converted_results/
+
+# Editor & Python noise
+.DS_Store
+.vscode/
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
