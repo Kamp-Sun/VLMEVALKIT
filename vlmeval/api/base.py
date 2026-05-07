@@ -182,7 +182,12 @@ class BaseAPI:
                         try:
                             log = log.text
                         except Exception as e:
+                            # Fall back to stringifying arbitrary objects (e.g., SDK response objects).
                             self.logger.warning(f'Failed to parse {log} as an http response: {str(e)}. ')
+                            try:
+                                log = str(log)
+                            except Exception:
+                                log = None
                     self.logger.info(f'RetCode: {ret_code}\nAnswer: {answer}\nLog: {log}')
             except Exception as err:
                 if self.verbose:
@@ -244,7 +249,8 @@ class BaseAPI:
         for i in range(self.retry):
             try:
                 ret_code, answer, log = self.generate_inner(message, **kwargs)
-                if ret_code == 0 and self.fail_msg not in answer and answer != '':
+                # Some backends may return None (e.g., blocked/empty response). Treat it as failure.
+                if ret_code == 0 and isinstance(answer, str) and answer != '' and self.fail_msg not in answer:
                     if self.verbose:
                         print(answer)
                     # Return both answer and extra_records

@@ -311,10 +311,33 @@ api_models = {
         Gemini, model="gemini-2.0-flash-lite", temperature=0, retry=10
     ),
     "GeminiFlash2-5": partial(
-        Gemini, model="gemini-2.5-flash", temperature=0, retry=10
+        Gemini, model="gemini-2.5-flash", temperature=0, retry=10, max_tokens=8192
     ),
     "GeminiPro2-5": partial(
         Gemini, model="gemini-2.5-pro", temperature=0, retry=10
+    ),
+
+    # Gemini 2.5 (lite)
+    "GeminiFlashLite2-5": partial(
+        Gemini, model="gemini-2.5-flash-lite", temperature=0, retry=10, max_tokens=8192
+    ),
+
+    # Gemini 3 preview models (if enabled on your account / endpoint)
+    "Gemini3ProPreview": partial(
+        Gemini, model="gemini-3-pro-preview", temperature=0, retry=10, max_tokens=16384
+    ),
+    "Gemini3FlashPreview": partial(
+        Gemini, model="gemini-3-flash-preview", temperature=0, retry=10, max_tokens=8192
+    ),
+
+    # Gemini 3 (custom): read the underlying model id from env var `GEMINI_MODEL`.
+    # Example:
+    #   export GOOGLE_API_KEY=...
+    #   export GOOGLE_API_BACKEND=genai
+    #   export GEMINI_MODEL=gemini-3-xxx
+    #   python ... --model Gemini3
+    "Gemini3": partial(
+        Gemini, model=os.environ.get("GEMINI_MODEL", "gemini-3"), temperature=0, retry=10
     ),
     
     # Qwen-VL
@@ -366,9 +389,9 @@ api_models = {
     "Claude3V_Opus": partial(
         Claude3V, model="claude-3-opus-20240229", temperature=0, retry=10, verbose=False
     ),
-    "Claude3V_Sonnet": partial(
+    "Claude4V_Sonnet": partial(
         Claude3V,
-        model="claude-3-sonnet-20240229",
+        model="claude-sonnet-4-5",
         temperature=0,
         retry=10,
         verbose=False,
@@ -380,13 +403,22 @@ api_models = {
         retry=10,
         verbose=False,
     ),
-    "Claude3-5V_Sonnet": partial(
+    # Some Anthropic accounts/endpoints no longer expose 20240620; prefer the newer 20241022 as default.
+    "Claude4-5Opus": partial(
         Claude3V,
-        model="claude-3-5-sonnet-20240620",
+        model="claude-opus-4-5-2025110",
         temperature=0,
         retry=10,
         verbose=False,
     ),
+    "Claude3-Haiku": partial(
+        Claude3V,
+        model="claude-3-haiku-20240307",
+        temperature=0,
+        retry=10,
+        verbose=False,
+    ),
+
     "Claude3-5V_Sonnet_20241022": partial(
         Claude3V,
         model="claude-3-5-sonnet-20241022",
@@ -585,6 +617,22 @@ api_models = {
         temperature=0,
         retry=3, 
         verbose=False, 
+        max_tokens=16384,
+    ),
+    # Ark Responses API (for accounts where Seed1.8 is available via /api/v3/responses)
+    "Doubao-Seed-1.8-251228": partial(
+        ArkResponsesAPI,
+        model="doubao-seed-1-8-251228",
+        retry=3,
+        verbose=False,
+        max_output_tokens=32768,
+    ),
+    "Doubao-Seed-1.6-Lite-251015": partial(
+        DoubaoVL,
+        model="doubao-seed-1-6-lite-251015",
+        temperature=0,
+        retry=3,
+        verbose=False,
         max_tokens=16384,
     ),
     # Shopee MUG-U

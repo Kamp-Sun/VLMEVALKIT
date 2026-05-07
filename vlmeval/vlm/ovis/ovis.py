@@ -1,3 +1,5 @@
+import os
+import logging
 import torch
 from transformers import AutoModelForCausalLM
 
@@ -745,14 +747,23 @@ class Ovis2_5(BaseModel):
             os.environ["LOCAL_RANK"] = "0"
             torch.cuda.set_device(0)
             dist_kwargs["distributed_executor_backend"] = "external_launcher"
-        self.model = LLM(
-            model=self.model_path,
-            dtype=self.dtype,
-            trust_remote_code=True,
-            tensor_parallel_size=1,
-            gpu_memory_utilization=0.7,
-            **dist_kwargs
-        )
+        try:
+            self.model = LLM(
+                model=self.model_path,
+                dtype=self.dtype,
+                trust_remote_code=True,
+                tensor_parallel_size=1,
+                gpu_memory_utilization=0.4,  # Further reduced to avoid OOM
+                max_model_len=4096,  # Reduced context length
+                max_num_seqs=1,  # Limit concurrent sequences
+                swap_space=4,  # Use 4GB swap space if needed
+                enforce_eager=True,  # Disable PagedAttention for stability
+                **dist_kwargs
+            )
+        except Exception as e:
+            logging.error(f"Failed to initialize vLLM for {model_path}: {e}")
+            logging.error("This may be due to vLLM version incompatibility. Try: pip install vllm==0.10.2 --extra-index-url https://wheels.vllm.ai/0.10.2/")
+            raise
         size_key = (
             self.model.llm_engine.model_config.hf_config.llm_config.num_hidden_layers,
             self.model.llm_engine.model_config.hf_config.llm_config.hidden_size
@@ -958,8 +969,8 @@ class Ovis2_5(BaseModel):
                 return response
 
         messages = self.prepare_inputs(message, dataset)
-        enable_thinking = any(dataset.startswith(prefix) for prefix in self.benchmark_with_thinking_map[self.size])
-        min_pixels = 448 * 448 if any(dataset.startswith(prefix) for prefix in ['OCRBench']) else 1024 * 1024
+        enable_thinking = dataset is not None and any(dataset.startswith(prefix) for prefix in self.benchmark_with_thinking_map[self.size])
+        min_pixels = 448 * 448 if dataset is not None and any(dataset.startswith(prefix) for prefix in ['OCRBench']) else 1024 * 1024
         max_pixels = 1792 * 1792
         vllm_output, prompt = self.vllm_infer(messages, min_pixels, max_pixels, enable_thinking)
         response = vllm_output["response"]

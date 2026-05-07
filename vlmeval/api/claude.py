@@ -129,16 +129,22 @@ class Claude_Wrapper(BaseAPI):
 
         try:
             resp_struct = json.loads(response.text)
-            if self.backend == 'alles':
-                answer = resp_struct['data']['content'][0]['text'].strip()
-            elif self.backend == 'official':
-                answer = resp_struct['content'][0]['text'].strip()
+            # Only parse success payload when HTTP is OK; error payloads may not have content fields.
+            if ret_code == 0:
+                if self.backend == 'alles':
+                    # success schema: {"data": {"content": [{"text": "..."}]}}
+                    answer = resp_struct['data']['content'][0]['text'].strip()
+                elif self.backend == 'official':
+                    # success schema: {"content": [{"text": "..."}]}
+                    answer = resp_struct['content'][0]['text'].strip()
         except Exception as err:
             if self.verbose:
                 self.logger.error(f'{type(err)}: {err}')
                 self.logger.error(response.text if hasattr(response, 'text') else response)
 
-        return ret_code, answer, response
+        # If the endpoint returns an error JSON, keep it as log but avoid KeyError.
+        # Let BaseAPI handle retry/failure based on ret_code/answer.
+        return ret_code, answer, response.text if hasattr(response, 'text') else response
 
 
 class Claude3V(Claude_Wrapper):

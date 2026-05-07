@@ -153,7 +153,14 @@ class OpenAIWrapper(BaseAPI):
                 self.api_base = os.environ.get('BOYUE_API_BASE')
                 self.key = os.environ.get('BOYUE_API_KEY')
 
-        self.logger.info(f'Using API Base: {self.api_base}; API Key: {self.key}')
+        # Avoid leaking full API keys in logs.
+        key_str = '' if self.key is None else str(self.key)
+        key_mask = key_str
+        if key_str and len(key_str) > 12:
+            key_mask = key_str[:6] + '...' + key_str[-4:]
+        elif key_str:
+            key_mask = '***'
+        self.logger.info(f'Using API Base: {self.api_base}; API Key: {key_mask}')
 
     # inputs can be a lvl-2 nested list: [content1, content2, content3, ...]
     # content can be a string or a list of image & text
@@ -195,6 +202,9 @@ class OpenAIWrapper(BaseAPI):
         input_msgs = self.prepare_inputs(inputs)
         temperature = kwargs.pop('temperature', self.temperature)
         max_tokens = kwargs.pop('max_tokens', self.max_tokens)
+        # Some callers pass internal-only kwargs (e.g., dataset) through BaseAPI.generate().
+        # OpenAI-compatible endpoints will reject unknown parameters in the request payload.
+        kwargs.pop('dataset', None)
 
         # Will send request if use Azure, dk how to use openai client for it
         if self.use_azure:

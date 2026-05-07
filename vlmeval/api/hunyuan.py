@@ -21,14 +21,15 @@ class HunyuanWrapper(BaseAPI):
 
     def __init__(self,
                  model: str = 'hunyuan-standard-vision',
-                 retry: int = 5,
+                 retry: int = 10,
                  secret_key: str = None,
                  secret_id: str = None,
                  verbose: bool = True,
                  system_prompt: str = None,
                  temperature: float = 0,
-                 timeout: int = 60,
+                 timeout: int = 120,
                  api_base: str = 'hunyuan.tencentcloudapi.com',
+                 wait: int = 3,
                  **kwargs):
 
         self.model = model
@@ -49,6 +50,10 @@ class HunyuanWrapper(BaseAPI):
         self.secret_key = secret_key
         self.timeout = timeout
 
+        # Initialize base class first to get logger
+        # Use longer wait time for server errors (InternalError, etc.)
+        super().__init__(retry=retry, system_prompt=system_prompt, verbose=verbose, wait=wait, **kwargs)
+        
         try:
             from tencentcloud.common import credential
             from tencentcloud.common.profile.client_profile import ClientProfile
@@ -57,8 +62,6 @@ class HunyuanWrapper(BaseAPI):
         except ImportError as err:
             self.logger.critical('Please install tencentcloud-sdk-python to use Hunyuan API. ')
             raise err
-
-        super().__init__(retry=retry, system_prompt=system_prompt, verbose=verbose, **kwargs)
 
         cred = credential.Credential(self.secret_id, self.secret_key)
         httpProfile = HttpProfile(reqTimeout=300)
@@ -166,13 +169,16 @@ class HunyuanWrapper(BaseAPI):
             answer = resp['Choices'][0]['Message']['Content']
             return 0, answer, resp
         except TencentCloudSDKException as e:
-            self.logger.error(f'Got error code: {e.get_code()}')
-            if e.get_code() == 'ClientNetworkError':
-                return -1, self.fail_msg + e.get_code(), None
-            elif e.get_code() in ['InternalError', 'ServerNetworkError']:
-                return -1, self.fail_msg + e.get_code(), None
-            elif e.get_code() in ['LimitExceeded']:
-                return -1, self.fail_msg + e.get_code(), None
+            error_code = e.get_code()
+            self.logger.error(f'Got error code: {error_code}')
+            # All errors will trigger retry in base.py, but server errors may need longer wait
+            # The base class will handle retry with exponential backoff
+            if error_code == 'ClientNetworkError':
+                return -1, self.fail_msg + error_code, None
+            elif error_code in ['InternalError', 'ServerNetworkError']:
+                return -1, self.fail_msg + error_code, None
+            elif error_code in ['LimitExceeded']:
+                return -1, self.fail_msg + error_code, None
             else:
                 return -1, self.fail_msg + str(e), None
 
